@@ -37,7 +37,8 @@ body{font-family:var(--sans);color:var(--ink);background:var(--bg);-webkit-font-
 .li{display:flex;align-items:center;gap:11px;padding:9px 18px 9px 20px;cursor:pointer;border-left:3px solid transparent}
 .li:hover{background:#f7f8fa}
 .li.active{background:var(--accent-soft);border-left-color:var(--accent)}
-.li-check{width:20px;height:20px;border-radius:50%;border:1.6px solid var(--border);display:grid;place-items:center;flex:none;color:transparent;background:#fff;transition:.15s}
+.li-check{width:22px;height:22px;border-radius:50%;border:1.6px solid var(--border);display:grid;place-items:center;flex:none;color:transparent;background:#fff;transition:.15s;cursor:pointer}
+.li-check:hover{border-color:var(--dot);transform:scale(1.12)}
 .li-check svg{width:12px;height:12px}
 .li.done .li-check{background:var(--dot);border-color:var(--dot);color:#fff}
 .li-body{min-width:0;flex:1}
@@ -65,14 +66,28 @@ body{font-family:var(--sans);color:var(--ink);background:var(--bg);-webkit-font-
 .sb-backdrop{display:none}
 @media (max-width:860px){
  .app{grid-template-columns:1fr}
- .sidebar{position:fixed;top:58px;bottom:0;left:0;width:300px;z-index:30;transform:translateX(-100%);transition:transform .25s ease;box-shadow:0 10px 40px -12px rgba(0,0,0,.3)}
+ .sidebar{position:fixed;top:58px;bottom:0;left:0;width:min(88vw,320px);z-index:30;transform:translateX(-100%);transition:transform .25s ease;box-shadow:0 10px 40px -12px rgba(0,0,0,.3)}
  body.sb-open .sidebar{transform:none}
  body.sb-open .sb-backdrop{display:block;position:fixed;inset:58px 0 0 0;background:rgba(0,0,0,.35);z-index:25}
  .menu-toggle{display:grid;place-items:center}
  .main{grid-column:1}
  .brand-sub{display:none}
+ .brand{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
  .lh-deliv{display:none}
  .top-progress .tp-bar{width:90px}
+}
+@media (max-width:640px){
+ .topbar{gap:10px;padding:0 12px}
+ .brand{font-size:14px}
+ .top-progress .tp-bar{display:none}
+ .tp-label{min-width:auto;font-size:11.5px}
+ .lesson-head{flex-wrap:wrap;gap:9px;padding:10px 14px}
+ .lh-left{flex:1 1 100%}
+ .lh-title{font-size:15px}
+ .lh-right{flex:1 1 100%;display:grid;grid-template-columns:46px 1fr 46px;gap:8px}
+ .lh-nav{padding:0;width:auto}
+ .lh-nav .lbl{display:none}
+ .lh-done{min-width:0;justify-content:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
 </style>
 <div class="app">
@@ -91,9 +106,9 @@ body{font-family:var(--sans);color:var(--ink);background:var(--bg);-webkit-font-
     <span class="lh-deliv" id="lhdeliv"></span>
    </div>
    <div class="lh-right">
-    <button class="lh-nav" id="lhprev" aria-label="Lezione precedente">‹ Prec</button>
+    <button class="lh-nav" id="lhprev" aria-label="Lezione precedente">‹ <span class="lbl">Prec</span></button>
     <button class="lh-done" id="lhdone">Segna completata</button>
-    <button class="lh-nav" id="lhnext" aria-label="Lezione successiva">Succ ›</button>
+    <button class="lh-nav" id="lhnext" aria-label="Lezione successiva"><span class="lbl">Succ</span> ›</button>
    </div>
   </div>
   <div class="stage-wrap"><iframe class="stage" id="stage" title="Lezione" allow="clipboard-write"></iframe></div>
@@ -133,6 +148,7 @@ function getDone(){try{return JSON.parse(localStorage.getItem(DONEKEY)||'[]');}c
 function setDone(a){try{localStorage.setItem(DONEKEY,JSON.stringify(a));}catch(e){}}
 function isDone(n){return getDone().indexOf(n)>=0;}
 function toggleDone(n){var d=getDone();var i=d.indexOf(n);if(i>=0)d.splice(i,1);else d.push(n);setDone(d);refreshProgress();}
+function markDone(n){var d=getDone();if(d.indexOf(n)<0){d.push(n);setDone(d);refreshProgress();}}
 
 function el(tag,cls,html){var e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e;}
 
@@ -155,7 +171,8 @@ function buildSidebar(){
    var list=el('div','lessons');
    ls.forEach(function(l){
      var li=el('div','li');li.dataset.n=l.n;li.style.setProperty('--dot',PH[p].dot);
-     var ck=el('span','li-check',CHECK);
+     var ck=el('span','li-check',CHECK);ck.title='Segna come completata';
+     ck.addEventListener('click',function(e){e.stopPropagation();toggleDone(l.n);});
      var bd=el('div','li-body');
      bd.appendChild(el('div','li-num','LEZIONE '+('0'+l.n).slice(-2)));
      bd.appendChild(el('div','li-title',l.t));
@@ -195,8 +212,9 @@ function openLesson(n){
 }
 function updateDoneBtn(){
  var b=document.getElementById('lhdone');var d=isDone(cur);
+ var idx=order.indexOf(cur);var hasNext=idx<order.length-1;
  b.classList.toggle('is-done',d);
- b.textContent=d?'✓ Completata':'Segna completata';
+ b.textContent = d ? (hasNext?'✓ Fatta · continua':'✓ Completata') : (hasNext?'Completa e continua':'Segna completata');
 }
 function refreshProgress(){
  var done=getDone();
@@ -218,7 +236,10 @@ function go(delta){var idx=order.indexOf(cur);var ni=idx+delta;if(ni>=0&&ni<orde
 
 document.getElementById('lhprev').addEventListener('click',function(){go(-1);});
 document.getElementById('lhnext').addEventListener('click',function(){go(1);});
-document.getElementById('lhdone').addEventListener('click',function(){toggleDone(cur);});
+document.getElementById('lhdone').addEventListener('click',function(){
+ if(!isDone(cur))markDone(cur);
+ var idx=order.indexOf(cur);if(idx<order.length-1)openLesson(order[idx+1]);else updateDoneBtn();
+});
 document.getElementById('menuToggle').addEventListener('click',function(){document.body.classList.toggle('sb-open');});
 document.getElementById('sbBackdrop').addEventListener('click',function(){document.body.classList.remove('sb-open');});
 
